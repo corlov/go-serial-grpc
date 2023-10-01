@@ -9,6 +9,7 @@ import (
 	"net"
 	"strconv"
 	pb "stream"
+	"time"
 
 	"github.com/tarm/serial"
 
@@ -170,7 +171,11 @@ func (s *server) GetState(ctx context.Context, in *pb.Empty) (*pb.ResponseScale,
 
 
 func sendCommand(command string) ([]uint8, int, string, error) {
-	serialConfig := &serial.Config{Name: *serialPortAddress, Baud: *serialBaudRate}	
+	serialConfig := &serial.Config{
+		Name: *serialPortAddress, 
+		Baud: *serialBaudRate,
+		ReadTimeout: time.Second*15,
+	}	
 	serial, err := serial.OpenPort(serialConfig)
 	if err != nil {
 		fmt.Println(err)
@@ -189,10 +194,11 @@ func sendCommand(command string) ([]uint8, int, string, error) {
 	buf := make([]uint8, 2)
 	n, err = serial.Read(buf)
 	if err != nil {		
-		return nil, 0, "read request timeout, " + err.Error(), err
+		return nil, 0, "read from serial error, " + err.Error(), err
 		// log.Fatal(err)
 	}
 	log.Print("received: ", buf[:n])
+	serial.Close()
 
 	return buf[:n], n, "", nil
 }
