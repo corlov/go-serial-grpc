@@ -17,8 +17,10 @@ var (
 )
 
 var testGetWeigth = false
-var testGeState = true
+var testGeState = false
 var testStreaming = false
+var testSetZero = false
+var testSetTare= true
 
 func main() {
 	flag.Parse()
@@ -53,7 +55,34 @@ func main() {
 		if err2 != nil {
 			log.Fatalf("could not greet: %v", err)
 		}
-		log.Printf("GetState: Error %s, Message: %s, %s, %s", r2.GetError(), r2.GetMessage(), r2.GetSubtype(), r2.GetType())
+		log.Printf("GetState, Error '%s', Message: %s, %s, %s", r2.GetError(), r2.GetMessage(), r2.GetSubtype(), r2.GetType())
+
+	}
+
+
+	if testSetZero {
+		// Contact the server and print out its response.
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
+		defer cancel()
+
+		r2, err2 := c.SetZero(ctx, &pb.Empty{})
+		if err2 != nil {
+			log.Fatalf("could not greet: %v", err)
+		}
+		log.Printf("SetZero, Error: '%s'", r2.GetError())
+
+	}
+
+	if testSetTare {
+		// Contact the server and print out its response.
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
+		defer cancel()
+
+		r2, err2 := c.SetTareValue(ctx, &pb.RequestTareValue{Message: "4086"})
+		if err2 != nil {
+			log.Fatalf("could not greet: %v", err)
+		}
+		log.Printf("SetTareValue, Error: '%s'", r2.GetError())
 
 	}
 

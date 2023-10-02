@@ -25,13 +25,14 @@ rpc SetTareValue(RequestTareValue) установить значение тар�
 
 
 rpc ScalesMessageOutChannel(stream RequestScale) returns (stream ResponseScale) {}
-rpc SetTare(Empty) returns (ResponseSetScale) {}
-rpc SetTareValue(RequestTareValue) returns (ResponseSetScale) {}
-rpc SetZero(Empty) returns (ResponseSetScale) {}
-rpc GetInstantWeight(Empty) returns (ResponseInstantWeight) {}
 
-// состояние весов.(Подключены, не подключены)
-rpc GetState(Empty) returns (ResponseScale) {}
+Установит текущий вес тарой или отменит тару
+rpc SetTare(Empty) returns (ResponseSetScale) {}
+
+rpc SetTareValue(RequestTareValue) returns (ResponseSetScale) {}
+
+rpc SetZero(Empty) returns (ResponseSetScale) {}
+
 
 ================================================
 1) скопировать сгенеренные протофайлы и сам каталог stream в каталог $HOME/go/src

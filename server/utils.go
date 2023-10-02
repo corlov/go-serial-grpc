@@ -85,3 +85,13 @@ func intToSlice(n uint16, s []uint8) []uint8 {
     }
     return s
 }
+
+
+func int32ToSlice(n uint32, s []uint8) []uint8 {
+	s = append([]uint8{uint8((n >> 24) & 0xFF)}, s...)
+	s = append([]uint8{uint8((n >> 16) & 0xFF)}, s...)
+	s = append([]uint8{uint8((n >> 8) & 0xFF)}, s...)
+	s = append([]uint8{uint8(n & 0xFF)}, s...)
+
+	return s
+}
