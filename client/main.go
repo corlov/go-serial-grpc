@@ -16,9 +16,9 @@ var (
 	addr = flag.String("addr", "localhost:50055", "the address to connect to")
 )
 
-var testGetWeigth = false
+var testGetWeigth = true
 var testGeState = false
-var testStreaming = true
+var testStreaming = false
 
 func main() {
 	flag.Parse()
