@@ -91,23 +91,7 @@ func (s *server) ScalesMessageOutChannel(srv pb.ApiCallerScale_ScalesMessageOutC
 }
 
 
-
-func (s *server) SetTare(ctx context.Context, in *pb.Empty) (*pb.ResponseSetScale, error) {
-	_, _, errText, _ := sendCommand("\x0D")	
-	if errText != "" {
-		return &pb.ResponseSetScale{ Error: errText}, nil
-	}	
-	return &pb.ResponseSetScale{ Error: ""}, nil
-}
-
-
-
-func (s *server) SetTareValue(ctx context.Context, in *pb.RequestTareValue) (*pb.ResponseSetScale, error) {	
-	tareVal, err := strconv.Atoi(in.Message)
-    if err != nil {
-        return &pb.ResponseSetScale{ Error: "Incorrect tare value"}, nil
-    }
-
+func SetTare(tareVal uint32) string {
 	serialConfig := &serial.Config{
 		Name: *serialPortAddress, 
 		Baud: *serialBaudRate,
@@ -115,48 +99,45 @@ func (s *server) SetTareValue(ctx context.Context, in *pb.RequestTareValue) (*pb
 	}	
 	serial, err := serial.OpenPort(serialConfig)
 	if err != nil {
-		return &pb.ResponseSetScale{ Error: err.Error()}, nil
+		return err.Error()
 	}
 
 	n, err := serial.Write([]uint8(PROTOCOL_HEADER + CMD_SET_TARE_LEN + CMD_SET_TARE))
 	if err != nil {
-		return &pb.ResponseSetScale{ Error: err.Error()}, nil
+		return err.Error()
 	}
 
 	// tare:
 	var tare[]uint8	
 	_, err = serial.Write(int32ToSlice(uint32(tareVal), tare))
 	if err != nil {
-		return &pb.ResponseSetScale{ Error: err.Error()}, nil
+		return err.Error()
 	}
 
 	// crc: 
 	_, err = serial.Write(crc16(append([]uint8(CMD_SET_TARE), tare...)))
 	if err != nil {
-		return &pb.ResponseSetScale{ Error: err.Error()}, nil
+		return err.Error()
 	}
-
-	fmt.Println("Command has sent")
-	
 	
 	header := make([]uint8, 3)
 	n, err = serial.Read(header)
 	if err != nil {
-		return &pb.ResponseSetScale{ Error: err.Error()}, nil
+		return err.Error()
 	}
 	log.Print("header: ", header[:n])
 
 	len := make([]uint8, 2)
 	n, err = serial.Read(len)
 	if err != nil {
-		return &pb.ResponseSetScale{ Error: err.Error()}, nil
+		return err.Error()
 	}
 	log.Print("len: ", len[:n])
 
 	cmd := make([]uint8, 1)
 	n, err = serial.Read(cmd)
 	if err != nil {
-		return &pb.ResponseSetScale{ Error: err.Error()}, nil
+		return err.Error()
 	}
 	log.Print("cmd: ", cmd[:n])
 
@@ -164,23 +145,45 @@ func (s *server) SetTareValue(ctx context.Context, in *pb.RequestTareValue) (*pb
 	crc := make([]uint8, 2)
 	n, err = serial.Read(crc)
 	if err != nil {
-		return &pb.ResponseSetScale{ Error: err.Error()}, nil
+		return err.Error()
 	}
 	log.Print("crc: ", crc[:n])
 
 	serial.Close()
 
-
 	// FIXME: проверить контрольную сумму
 
 	if cmd[0] == 0x12 {
-		return &pb.ResponseSetScale{ Error: ""}, nil	
+		return ""	
 	} else if cmd[0] == 0x15 {
-		return &pb.ResponseSetScale{ Error: "nack"}, nil	
+		return "nack"
 	} else {
-		return &pb.ResponseSetScale{ Error: "code: " + strconv.Itoa(int(cmd[0]))}, nil
+		return "code: " + strconv.Itoa(int(cmd[0]))
 	}
+}
 
+
+
+// Установить текущий вес тарой или отменить тару
+// * Если передаваемая масса тары равна нулю, производится тарирование текущим весом.
+func (s *server) SetTare(ctx context.Context, in *pb.Empty) (*pb.ResponseSetScale, error) {	
+	return &pb.ResponseSetScale{ Error: SetTare(0) }, nil
+}
+
+
+
+// установить тару в значение
+func (s *server) SetTareValue(ctx context.Context, in *pb.RequestTareValue) (*pb.ResponseSetScale, error) {	
+	tareVal, err := strconv.Atoi(in.Message)
+    if err != nil {
+        return &pb.ResponseSetScale{ Error: "Incorrect tare value"}, nil
+    }
+
+	if (tareVal > 9999) || (tareVal < 0) {
+		return &pb.ResponseSetScale{ Error: "boundary error, tare has to be between 0 and 9999 gramm"}, nil
+	}
+	
+	return &pb.ResponseSetScale{ Error: SetTare(uint32(tareVal)) }, nil
 }
 
 

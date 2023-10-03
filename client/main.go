@@ -78,7 +78,11 @@ func main() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
 		defer cancel()
 
-		r2, err2 := c.SetTareValue(ctx, &pb.RequestTareValue{Message: "4086"})
+		//r2, err2 := c.SetTareValue(ctx, &pb.RequestTareValue{Message: "4086"})
+
+		r2, err2 := c.SetTare(ctx, &pb.Empty{})
+
+
 		if err2 != nil {
 			log.Fatalf("could not greet: %v", err)
 		}
