@@ -145,10 +145,10 @@ func SetTare(tareVal uint32) string {
 		return "CRC checking error"
 	}
 
-	if cmd[0] == 0x12 {
+	if cmd[0] == CMD_ACK_SET_TARE {
 		return ""	
-	} else if cmd[0] == 0x15 {
-		return "nack"
+	} else if cmd[0] == CMD_NACK_TARE {
+		return "NACK"
 	} else {
 		return "code: " + strconv.Itoa(int(cmd[0]))
 	}
@@ -181,8 +181,6 @@ func (s *server) SetTareValue(ctx context.Context, in *pb.RequestTareValue) (*pb
 
 // * В ряде весовых устройств команда не поддерживается (весовое устройство отвечает командой «CMD_NACK»).
 func (s *server) SetZero(ctx context.Context, in *pb.Empty) (*pb.ResponseSetScale, error) {
-	fmt.Println("SetZero")
-
 	serialConfig := &serial.Config{
 		Name: *serialPortAddress, 
 		Baud: *serialBaudRate,
@@ -193,68 +191,53 @@ func (s *server) SetZero(ctx context.Context, in *pb.Empty) (*pb.ResponseSetScal
 		fmt.Println(err)
 		log.Fatal(err)
 	}
-
-	// header:
-	n, err := serial.Write([]uint8("\xF8\x55\xCE"))
+	
+	n, err := serial.Write([]uint8(PROTOCOL_HEADER + CMD_SET_ZERO_LEN + CMD_SET_ZERO))
 	if err != nil {
-		log.Fatal(err)
+		return &pb.ResponseSetScale{ Error: err.Error() }, nil
 	}
-	// length:
-	_, err = serial.Write([]uint8("\x01\x00"))
+	// crc: в данном случае не нужно собирать из нескольких частей то от чего собираем КС, всего только от кода команды
+	_, err = serial.Write(crc16([]uint8(CMD_SET_ZERO)))
 	if err != nil {
-		log.Fatal(err)
-	}
-	// command:
-	_, err = serial.Write([]uint8("\xA3"))
-	if err != nil {
-		log.Fatal(err)
-	}
-	// crc: 
-	_, err = serial.Write(crc16([]uint8("\xA3")))
-	if err != nil {
-		log.Fatal(err)
+		return &pb.ResponseSetScale{ Error: err.Error() }, nil
 	}
 
-	
-	
+		
 	header := make([]uint8, 3)
 	n, err = serial.Read(header)
 	if err != nil {		
-		log.Fatal(err)
+		return &pb.ResponseSetScale{ Error: err.Error() }, nil
 	}
 	log.Print("header: ", header[:n])
 
 	len := make([]uint8, 2)
 	n, err = serial.Read(len)
 	if err != nil {		
-		log.Fatal(err)
+		return &pb.ResponseSetScale{ Error: err.Error() }, nil
 	}
 	log.Print("len: ", len[:n])
 
 	cmd := make([]uint8, 1)
 	n, err = serial.Read(cmd)
 	if err != nil {		
-		log.Fatal(err)
+		return &pb.ResponseSetScale{ Error: err.Error() }, nil
 	}
-	// FIXME: приходит почему-то значение 240 а д.б. 27 и 28, и вес на весах не уходит в 0
 	log.Print("cmd: ", cmd[:n])
 
 
 	errorCode := make([]uint8, 1)
-	if cmd[0] == 0x28 {
+	if cmd[0] == CMD_ERROR {
 		n, err = serial.Read(errorCode)
 		if err != nil {		
-			// FIXME: тут надо отдавать сообщение клиенту!
-			log.Fatal(err)
+			return &pb.ResponseSetScale{ Error: err.Error() }, nil
 		}
 		log.Print("errorCode: ", errorCode[:n])
 	}
 	
-
 	crc := make([]uint8, 2)
 	n, err = serial.Read(crc)
 	if err != nil {		
-		log.Fatal(err)
+		return &pb.ResponseSetScale{ Error: err.Error() }, nil
 	}
 	log.Print("crc: ", crc[:n])
 
@@ -262,28 +245,35 @@ func (s *server) SetZero(ctx context.Context, in *pb.Empty) (*pb.ResponseSetScal
 
 	resp := make([]uint8, sliceToInt(len, "BE"))
 	
-	if cmd[0] == 0x28 {
+	if cmd[0] == CMD_ERROR {
 		copy(resp, cmd)
 		copy(resp[1:], errorCode)
 	} else {
 		copy(resp, cmd)
 	}
 
-
-	fmt.Println("calculated crc: ", (crc16(resp)))
+	fmt.Println("calculated crc: ", (crc16(resp)), crc)
 
 	if !reflect.DeepEqual((crc16(resp)), crc) {
-		return &pb.ResponseSetScale{ Error: "CRC error"}, nil
+		return &pb.ResponseSetScale{ Error: "CRC checking error"}, nil
 	}
 
-	if cmd[0] == 0x28 {
-		if errorCode[0] == 0x15 {
-			return &pb.ResponseSetScale{ Error: "Setting to >0< is unavailable"}, nil
-		}
-		return &pb.ResponseSetScale{ Error: "code: " + strconv.Itoa(int(errorCode[0]))}, nil
-	}
+	switch cmd[0] {
+		case CMD_ERROR:
+			if errorCode[0] == CMD_NACK_TARE {
+				return &pb.ResponseSetScale{ Error: "Setting to >0< is unavailable"}, nil
+			}
+			return &pb.ResponseSetScale{ Error: "code: " + strconv.Itoa(int(errorCode[0]))}, nil
+			
+		case CMD_NACK:
+			return &pb.ResponseSetScale{ Error: "NACK"}, nil
 
-	return &pb.ResponseSetScale{ Error: ""}, nil		
+		case CMD_ACK_SET:
+			return &pb.ResponseSetScale{ Error: ""}, nil
+			
+		default:
+			return &pb.ResponseSetScale{ Error: "another error"}, nil
+	}
 }
 
 
