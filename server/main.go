@@ -50,21 +50,15 @@ func (s *server) ScalesMessageOutChannel(srv pb.ApiCallerScale_ScalesMessageOutC
 			continue
 		}
 
-		if req.Message == "weigth" {
-			resp := pb.ResponseScale{ Error: "", Message: strconv.Itoa(int(scalesWeigth)), Type: "", Subtype: ""}
-			if err := srv.Send(&resp); err != nil {
-				log.Printf("send error %v", err)
-			}			
-		}
-
 		resp := pb.ResponseScale{ Error: "", Message: "", Type: "", Subtype: ""}
 		switch req.Message {
 			case "weigth":
 				fmt.Println("get weigth")
 				resp = pb.ResponseScale{ Error: "", Message: strconv.Itoa(int(scalesWeigth)), Type: "", Subtype: ""}
-			case "state":
+
+			default:
 				fmt.Println("get state")
-				resp = pb.ResponseScale{ Error: "", Message: scalesState, Type: "", Subtype: ""}
+				resp = pb.ResponseScale{ Error: "unknown request", Message: "", Type: "", Subtype: ""}
 		}
 
 		if err := srv.Send(&resp); err != nil {
@@ -186,6 +180,8 @@ func (s *server) SetTareValue(ctx context.Context, in *pb.RequestTareValue) (*pb
 // * В ряде весовых устройств команда не поддерживается (весовое устройство отвечает командой «CMD_NACK»).
 func (s *server) SetZero(ctx context.Context, in *pb.Empty) (*pb.ResponseSetScale, error) {
 	fmt.Println(">>>	SetZero	<<<")
+	time.Sleep(1 * time.Second)	
+	
 	serialConfig := &serial.Config{
 		Name: *serialPortAddress, 
 		Baud: *serialBaudRate,
@@ -391,7 +387,8 @@ func (s *server) GetInstantWeight(ctx context.Context, in *pb.Empty) (*pb.Respon
 			return &pb.ResponseInstantWeight{ Error: "CRC error", Message: "" }, nil
 		}
 				
-		return &pb.ResponseInstantWeight{ Error: "", Message: strconv.Itoa(int(int32(sliceToInt32(weight, "BE"))))}, nil
+		scalesWeigth = int(int32(sliceToInt32(weight, "BE")))
+		return &pb.ResponseInstantWeight{ Error: "", Message: strconv.Itoa(scalesWeigth) }, nil
 	}
 
 	if cmd[0] == CMD_ERROR {
@@ -419,35 +416,37 @@ func (s *server) GetInstantWeight(ctx context.Context, in *pb.Empty) (*pb.Respon
 			return &pb.ResponseInstantWeight{ Error: "CRC error", Message: "" }, nil
 		}
 
-		// TODO: в константы ошибки поместить
 		switch cmd[0] {
-			case 0x08:
+			case ERR_CODE_OVERWEIGHT:
 				return &pb.ResponseInstantWeight{ Error: "overweight" }, nil
 				
-			case 0x09:
-				return &pb.ResponseInstantWeight{ Error: "incorrect mode" }, nil
+			case ERR_CODE_INCORRECT_MODE:
+				return &pb.ResponseInstantWeight{ Error: "Incorrect device mode" }, nil
 
-			case 0x17:
-				return &pb.ResponseInstantWeight{ Error: "weight module is unaccesible" }, nil
+			case ERR_CODE_UNACCESS:
+				return &pb.ResponseInstantWeight{ Error: "Weight module is unaccesible" }, nil
 
-			case 0x18:
-				return &pb.ResponseInstantWeight{ Error: "check platform" }, nil
+			case ERR_CODE_PLATFORM:
+				return &pb.ResponseInstantWeight{ Error: "Check weight platform" }, nil
 
-			case 0x19:
-				return &pb.ResponseInstantWeight{ Error: "module damage" }, nil
+			case ERR_CODE_MODULE_FAULT:
+				return &pb.ResponseInstantWeight{ Error: "Weight module fault" }, nil
 				
 			default:
-				return &pb.ResponseInstantWeight{ Error: "another error"}, nil
+				return &pb.ResponseInstantWeight{ Error: "Another error"}, nil
 		}
 	}
 
 	serial.Close()
-	return &pb.ResponseInstantWeight{ Error: "another error"}, nil
+	return &pb.ResponseInstantWeight{ Error: "Undefined error"}, nil
 }
 
 
 // состояние весов.(Подключены, не подключены)
 func (s *server) GetState(ctx context.Context, in *pb.Empty) (*pb.ResponseScale, error) {	
+	fmt.Println(">>>	GetState	<<<")
+	time.Sleep(1 * time.Second)	
+
 	serialConfig := &serial.Config{
 		Name: *serialPortAddress, 
 		Baud: *serialBaudRate,
@@ -464,39 +463,6 @@ func (s *server) GetState(ctx context.Context, in *pb.Empty) (*pb.ResponseScale,
 	return &pb.ResponseScale{ Error: "", Message: "ok", Type: "", Subtype: ""}, nil
 }
 
-
-func sendCommand(command string) ([]uint8, int, string, error) {
-	serialConfig := &serial.Config{
-		Name: *serialPortAddress, 
-		Baud: *serialBaudRate,
-		ReadTimeout: time.Second*15,
-	}	
-	serial, err := serial.OpenPort(serialConfig)
-	if err != nil {
-		fmt.Println(err)
-		// log.Fatal(err)
-		return nil, 0, "open serial error, " + err.Error(), err
-
-	}
-
-	n, err := serial.Write([]uint8(command))
-	if err != nil {
-		return nil, 0, "write to serial error, " + err.Error(), err
-		// log.Fatal(err)
-	}
-
-	// получаем значение (2 байта)
-	buf := make([]uint8, 2)
-	n, err = serial.Read(buf)
-	if err != nil {		
-		return nil, 0, "read from serial error, " + err.Error(), err
-		// log.Fatal(err)
-	}
-	log.Print("received: ", buf[:n])
-	serial.Close()
-
-	return buf[:n], n, "", nil
-}
 
 
 func main() {
