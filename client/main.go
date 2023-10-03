@@ -16,11 +16,12 @@ var (
 	addr = flag.String("addr", "localhost:50055", "the address to connect to")
 )
 
-var testGetWeigth = false
+var testGetWeigth = true
 var testGeState = false
 var testStreaming = false
 var testSetZero = false
-var testSetTare= true
+var testSetTare = false
+var testSetTareValue = false
 
 func main() {
 	flag.Parse()
@@ -74,19 +75,38 @@ func main() {
 	}
 
 	if testSetTare {
-		// Contact the server and print out its response.
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
-		defer cancel()
+		k := 0
+		for k < 3 {
+				k += 1
+			// Contact the server and print out its response.
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
+			defer cancel()
 
-		r2, err2 := c.SetTareValue(ctx, &pb.RequestTareValue{Message: "4086"})
+			r2, err2 := c.SetTare(ctx, &pb.Empty{})
 
-		//r2, err2 := c.SetTare(ctx, &pb.Empty{})
-
-
-		if err2 != nil {
-			log.Fatalf("could not greet: %v", err)
+			if err2 != nil {
+				log.Fatalf("could not greet: %v", err)
+			}
+			log.Printf("SetTareValue, Error: '%s'", r2.GetError())
 		}
-		log.Printf("SetTareValue, Error: '%s'", r2.GetError())
+
+	}
+
+	if testSetTareValue {
+		k := 0
+		for k < 3 {
+			k += 1
+			// Contact the server and print out its response.
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
+			defer cancel()
+
+			r2, err2 := c.SetTareValue(ctx, &pb.RequestTareValue{Message: "4086"})
+
+			if err2 != nil {
+				log.Fatalf("could not greet: %v", err)
+			}
+			log.Printf("SetTareValue, Error: '%s'", r2.GetError())
+		}
 
 	}
 

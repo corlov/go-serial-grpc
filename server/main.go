@@ -76,6 +76,8 @@ func (s *server) ScalesMessageOutChannel(srv pb.ApiCallerScale_ScalesMessageOutC
 
 
 func SetTare(tareVal uint32) string {
+	time.Sleep(1 * time.Second)
+
 	serialConfig := &serial.Config{
 		Name: *serialPortAddress, 
 		Baud: *serialBaudRate,
@@ -159,6 +161,7 @@ func SetTare(tareVal uint32) string {
 // Установить текущий вес тарой или отменить тару
 // * Если передаваемая масса тары равна нулю, производится тарирование текущим весом.
 func (s *server) SetTare(ctx context.Context, in *pb.Empty) (*pb.ResponseSetScale, error) {	
+	fmt.Println(">>>	SetTare	<<<")
 	return &pb.ResponseSetScale{ Error: SetTare(0) }, nil
 }
 
@@ -166,6 +169,7 @@ func (s *server) SetTare(ctx context.Context, in *pb.Empty) (*pb.ResponseSetScal
 
 // установить тару в значение
 func (s *server) SetTareValue(ctx context.Context, in *pb.RequestTareValue) (*pb.ResponseSetScale, error) {	
+	fmt.Println(">>>	SetTareValue	<<<")
 	tareVal, err := strconv.Atoi(in.Message)
     if err != nil {
         return &pb.ResponseSetScale{ Error: "Incorrect tare value"}, nil
@@ -181,6 +185,7 @@ func (s *server) SetTareValue(ctx context.Context, in *pb.RequestTareValue) (*pb
 
 // * В ряде весовых устройств команда не поддерживается (весовое устройство отвечает командой «CMD_NACK»).
 func (s *server) SetZero(ctx context.Context, in *pb.Empty) (*pb.ResponseSetScale, error) {
+	fmt.Println(">>>	SetZero	<<<")
 	serialConfig := &serial.Config{
 		Name: *serialPortAddress, 
 		Baud: *serialBaudRate,
@@ -280,6 +285,9 @@ func (s *server) SetZero(ctx context.Context, in *pb.Empty) (*pb.ResponseSetScal
 
 // получить текущий вес с прибора
 func (s *server) GetInstantWeight(ctx context.Context, in *pb.Empty) (*pb.ResponseInstantWeight, error) {
+	time.Sleep(1 * time.Second)	
+	fmt.Println(">>>	GetInstantWeight	<<<")
+	
 	serialConfig := &serial.Config{
 		Name: *serialPortAddress, 
 		Baud: *serialBaudRate,
@@ -292,108 +300,149 @@ func (s *server) GetInstantWeight(ctx context.Context, in *pb.Empty) (*pb.Respon
 	}
 
 	// header:
-	n, err := serial.Write([]uint8("\xF8\x55\xCE"))
+	n, err := serial.Write([]uint8(PROTOCOL_HEADER + CMD_GET_MASSA_LEN + CMD_GET_MASSA))
 	if err != nil {
-		log.Fatal(err)
+		return &pb.ResponseInstantWeight{ Error: err.Error(), Message: "" }, nil
 	}
-	// length:
-	_, err = serial.Write([]uint8("\x01\x00"))
-	if err != nil {
-		log.Fatal(err)
-	}
-	// command:
-	_, err = serial.Write([]uint8("\x23"))
-	if err != nil {
-		log.Fatal(err)
-	}
+	
 	// crc: 
-	_, err = serial.Write(crc16([]uint8("\x23")))
+	_, err = serial.Write(crc16([]uint8(CMD_GET_MASSA)))
 	if err != nil {
-		log.Fatal(err)
+		return &pb.ResponseInstantWeight{ Error: err.Error(), Message: "" }, nil
 	}
 
 	
 	header := make([]uint8, 3)
 	n, err = serial.Read(header)
 	if err != nil {		
-		log.Fatal(err)
+		return &pb.ResponseInstantWeight{ Error: err.Error(), Message: "" }, nil
 	}
 	log.Print("header: ", header[:n])
 
 	len := make([]uint8, 2)
 	n, err = serial.Read(len)
 	if err != nil {		
-		log.Fatal(err)
+		return &pb.ResponseInstantWeight{ Error: err.Error(), Message: "" }, nil
 	}
 	log.Print("len: ", len[:n])
 
 	cmd := make([]uint8, 1)
 	n, err = serial.Read(cmd)
 	if err != nil {		
-		log.Fatal(err)
+		return &pb.ResponseInstantWeight{ Error: err.Error(), Message: "" }, nil
 	}
 	log.Print("cmd: ", cmd[:n])
 
-	// FIXME: обработать случай, когда прибор возвращает тут ошибку!
+	if cmd[0] == CMD_ACK_MASSA {
+		weight := make([]uint8, 4)
+		n, err = serial.Read(weight)
+		if err != nil {		
+			return &pb.ResponseInstantWeight{ Error: err.Error(), Message: "" }, nil
+		}
+		log.Print("weight: ", weight[:n])
 
-	weight := make([]uint8, 4)
-	n, err = serial.Read(weight)
-	if err != nil {		
-		log.Fatal(err)
-	}
-	log.Print("weight: ", weight[:n])
+		division := make([]uint8, 1)
+		n, err = serial.Read(division)
+		if err != nil {		
+			return &pb.ResponseInstantWeight{ Error: err.Error(), Message: "" }, nil
+		}
+		log.Print("division: ", division[:n])
 
-	division := make([]uint8, 1)
-	n, err = serial.Read(division)
-	if err != nil {		
-		log.Fatal(err)
-	}
-	log.Print("division: ", division[:n])
+		stable := make([]uint8, 1)
+		n, err = serial.Read(stable)
+		if err != nil {		
+			return &pb.ResponseInstantWeight{ Error: err.Error(), Message: "" }, nil
+		}
+		log.Print("stable: ", stable[:n])
 
-	stable := make([]uint8, 1)
-	n, err = serial.Read(stable)
-	if err != nil {		
-		log.Fatal(err)
-	}
-	log.Print("stable: ", stable[:n])
+		net := make([]uint8, 1)
+		n, err = serial.Read(net)
+		if err != nil {		
+			return &pb.ResponseInstantWeight{ Error: err.Error(), Message: "" }, nil
+		}
+		log.Print("net: ", net[:n])
 
-	net := make([]uint8, 1)
-	n, err = serial.Read(net)
-	if err != nil {		
-		log.Fatal(err)
-	}
-	log.Print("net: ", net[:n])
+		zero := make([]uint8, 1)
+		n, err = serial.Read(zero)
+		if err != nil {		
+			return &pb.ResponseInstantWeight{ Error: err.Error(), Message: "" }, nil
+		}
+		log.Print("zero: ", zero[:n])
 
-	zero := make([]uint8, 1)
-	n, err = serial.Read(zero)
-	if err != nil {		
-		log.Fatal(err)
-	}
-	log.Print("zero: ", zero[:n])
+		crc := make([]uint8, 2)
+		n, err = serial.Read(crc)
+		if err != nil {		
+			return &pb.ResponseInstantWeight{ Error: err.Error(), Message: "" }, nil
+		}
+		log.Print("crc: ", crc[:n])
 
-	crc := make([]uint8, 2)
-	n, err = serial.Read(crc)
-	if err != nil {		
-		log.Fatal(err)
-	}
-	log.Print("crc: ", crc[:n])
+		serial.Close()
 
-	resp := make([]uint8, sliceToInt(len, "BE"))
-	copy(resp, cmd)
-	copy(resp[1:], weight)
-	copy(resp[5:], division)
-	copy(resp[6:], stable)
-	copy(resp[7:], net)
-	copy(resp[8:], zero)
-	
-	
-	if !reflect.DeepEqual(reverse(crc16(resp)), crc) {
-		panic("CRC error")
+		resp := make([]uint8, sliceToInt(len, "BE"))
+		copy(resp, cmd)
+		copy(resp[1:], weight)
+		copy(resp[5:], division)
+		copy(resp[6:], stable)
+		copy(resp[7:], net)
+		copy(resp[8:], zero)
+		
+		
+		if !reflect.DeepEqual(reverse(crc16(resp)), crc) {
+			return &pb.ResponseInstantWeight{ Error: "CRC error", Message: "" }, nil
+		}
+				
+		return &pb.ResponseInstantWeight{ Error: "", Message: strconv.Itoa(int(int32(sliceToInt32(weight, "BE"))))}, nil
 	}
-                
+
+	if cmd[0] == CMD_ERROR {
+		errorCode := make([]uint8, 1)
+		n, err = serial.Read(errorCode)
+		if err != nil {		
+			return &pb.ResponseInstantWeight{ Error: err.Error(), Message: "" }, nil
+		}
+		log.Print("errorCode: ", errorCode[:n])
+
+		crc := make([]uint8, 2)
+		n, err = serial.Read(crc)
+		if err != nil {		
+			return &pb.ResponseInstantWeight{ Error: err.Error(), Message: "" }, nil
+		}
+		log.Print("crc: ", crc[:n])
+
+		serial.Close()
+
+		resp := make([]uint8, sliceToInt(len, "BE"))
+		copy(resp, cmd)
+		copy(resp[1:], errorCode)
+
+		if !reflect.DeepEqual(reverse(crc16(resp)), crc) {
+			return &pb.ResponseInstantWeight{ Error: "CRC error", Message: "" }, nil
+		}
+
+		// TODO: в константы ошибки поместить
+		switch cmd[0] {
+			case 0x08:
+				return &pb.ResponseInstantWeight{ Error: "overweight" }, nil
+				
+			case 0x09:
+				return &pb.ResponseInstantWeight{ Error: "incorrect mode" }, nil
+
+			case 0x17:
+				return &pb.ResponseInstantWeight{ Error: "weight module is unaccesible" }, nil
+
+			case 0x18:
+				return &pb.ResponseInstantWeight{ Error: "check platform" }, nil
+
+			case 0x19:
+				return &pb.ResponseInstantWeight{ Error: "module damage" }, nil
+				
+			default:
+				return &pb.ResponseInstantWeight{ Error: "another error"}, nil
+		}
+	}
+
 	serial.Close()
-	
-	return &pb.ResponseInstantWeight{ Error: "", Message: strconv.Itoa(int(int32(sliceToInt32(weight, "BE"))))}, nil
+	return &pb.ResponseInstantWeight{ Error: "another error"}, nil
 }
 
 
