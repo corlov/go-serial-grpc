@@ -33,7 +33,7 @@ rpc SetTareValue(RequestTareValue) установить значение тар�
 
 rpc ScalesMessageOutChannel(stream RequestScale) returns (stream ResponseScale) {}
 
-Установит текущий вес тарой или отменит тару
+Установит текущий вес тарой или отменить тару
 rpc SetTare(Empty) returns (ResponseSetScale) {}
 
 rpc SetTareValue(RequestTareValue) returns (ResponseSetScale) {}
