@@ -30,7 +30,12 @@ var scalesWeigth = 0
 
 var (
 	listenPort = flag.Int("listenPort", 50055, "The server port")
-	//serialPortAddress = flag.String("serialPortAddress", "/dev/pts/5", "The scales address")
+
+	// socat:
+	//serialPortAddress = flag.String("serialPortAddress", "/dev/pts/5", "The scales emulator address")
+
+	// scales device:
 	serialPortAddress = flag.String("serialPortAddress", "/dev/ttyACM0", "The scales address")	
+
 	serialBaudRate = flag.Int("serialBaudRate", 115200, "serialBaudRate")
 )

@@ -3,12 +3,12 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"io"
 	"log"
 	"os"
-	pb "stream"
 	"time"
+
+	pb "../stream"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -28,8 +28,7 @@ var testSetTareValue = false
 
 
 func main() {
-	fmt.Println(os.Args)
-	if os.Args[1] == "weigth" {
+	if os.Args[1] == "weight" {
 		testGetWeigth = true
 	}
 

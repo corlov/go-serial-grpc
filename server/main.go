@@ -9,8 +9,9 @@ import (
 	"net"
 	"reflect"
 	"strconv"
-	pb "stream"
 	"time"
+
+	pb "../stream"
 
 	"github.com/tarm/serial"
 	"google.golang.org/grpc"
